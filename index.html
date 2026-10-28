@@ -215,16 +215,8 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
 .stage { position: relative; flex: 1 1 auto; min-height: 120px; display: grid; place-items: center; overflow: hidden; }
 #flash { position: absolute; inset: 0; background: var(--flash-off); }
 #flash.on { background: var(--flash-on); }
-.glow {
-  width: min(64vw, 40vh); aspect-ratio: 1; border-radius: 50%;
-  background: radial-gradient(circle, var(--glow-1) 0%, var(--glow-2) 55%, rgba(0,0,0,0) 72%);
-  opacity: 0.8;
-  animation: breathe 8s ease-in-out infinite;
-}
-@keyframes breathe {
-  0%, 100% { transform: scale(0.72); opacity: 0.45; }
-  50% { transform: scale(1); opacity: 0.95; }
-}
+#glow { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+#flash { z-index: 1; }
 .panel {
   flex: 0 0 auto; max-height: 75%; overflow-y: auto;
   background: var(--panel); color: var(--panel-fg);
@@ -262,7 +254,6 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
   #timer { font-size: 58px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .glow { animation: none; transform: scale(0.9); opacity: 0.8; }
   .switch-row .track, .switch-row .track::after { transition: none; }
   .btn:active { transform: none; }
 }
@@ -340,7 +331,7 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
 <main id="session" hidden aria-label="Сеанс">
   <div class="stage" id="stage">
     <div id="flash" hidden></div>
-    <div class="glow" id="glow" aria-hidden="true"></div>
+    <canvas id="glow" aria-hidden="true"></canvas>
   </div>
   <div class="panel">
     <div class="panel-in">
@@ -736,10 +727,192 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     n.textContent = text || '';
     n.hidden = !text;
   }
+  /* ---------- orb (sound-only visual): slow, calm, never flickers ---------- */
+  var orb = (function () {
+    var cv = $('glow');
+    var g = null, w = 0, h = 0, dpr = 1, rafId = 0, lastDraw = 0, t0 = 0, bg = '#000';
+    var rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var TAU = Math.PI * 2;
+    var blobs = [], dust = [];
+    var i;
+    /* deterministic pseudo-random so the layout is stable */
+    var seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    for (i = 0; i < 6; i++) {
+      blobs.push({
+        px: 20 + rnd() * 40, py: 24 + rnd() * 36,      /* periods, s */
+        ph1: rnd() * TAU, ph2: rnd() * TAU,
+        ax: 0.25 + rnd() * 0.3, ay: 0.25 + rnd() * 0.3, /* fraction of R */
+        r: 0.45 + rnd() * 0.35, a: 0.12 + rnd() * 0.13,
+        hot: i % 2 === 0
+      });
+    }
+    for (i = 0; i < 40; i++) {
+      dust.push({
+        ang: rnd() * TAU, rad: 1.1 + rnd() * 0.9,
+        per: 40 + rnd() * 80, dir: rnd() < 0.5 ? -1 : 1,
+        size: 1 + rnd(), tw: 3 + rnd() * 5, tph: rnd() * TAU, base: 0.25 + rnd() * 0.3
+      });
+    }
+
+    function colors() {
+      var cs = getComputedStyle(document.documentElement);
+      return {
+        c1: (cs.getPropertyValue('--glow-1') || '#f7b84a').trim() || '#f7b84a',
+        c2: (cs.getPropertyValue('--glow-2') || '#8a4b00').trim() || '#8a4b00'
+      };
+    }
+    function rgba(hex, a) {
+      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+      if (!m) return 'rgba(247,184,74,' + a + ')';
+      return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + a + ')';
+    }
+    var col = { c1: '#f7b84a', c2: '#8a4b00' };
+
+    function resize() {
+      var st = cv.parentNode;
+      var r = st.getBoundingClientRect();
+      w = Math.max(1, r.width); h = Math.max(1, r.height);
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      g = cv.getContext('2d');
+      try { bg = getComputedStyle($('session')).backgroundColor || '#000'; } catch (e) { bg = '#000'; }
+      col = colors();
+      if (!rafId && !cv.hidden) draw(performance.now(), rm);
+    }
+
+    function draw(now, still) {
+      if (!g) return;
+      var tt = still ? 0 : (now - t0) / 1000;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 1;
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, h);
+      var cx = w / 2, cy = h / 2, R0 = 0.32 * Math.min(w, h);
+      /* breath: 8 s sine, 0 = full exhale, 1 = full inhale */
+      var b = still ? 1 : 0.5 - 0.5 * Math.cos(TAU * tt / 8);
+      var scale = 0.82 + 0.18 * b;
+      var R = R0 * scale;
+      var br = 0.88 + 0.12 * b;
+
+      /* soft outer aura (constant size, follows breath gently) */
+      var aura = g.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 1.9);
+      aura.addColorStop(0, rgba(col.c1, 0.38 * br));
+      aura.addColorStop(0.25, rgba(col.c1, 0.14 * br));
+      aura.addColorStop(0.6, rgba(col.c2, 0.08 * br));
+      aura.addColorStop(1, rgba(col.c2, 0));
+      g.fillStyle = aura;
+      g.fillRect(0, 0, w, h);
+
+      /* 1. core orb */
+      var core = g.createRadialGradient(cx, cy, 0, cx, cy, R);
+      core.addColorStop(0, rgba(col.c1, 0.95 * br));
+      core.addColorStop(0.55, rgba(col.c1, 0.55 * br));
+      core.addColorStop(0.85, rgba(col.c1, 0.42 * br));
+      core.addColorStop(1, rgba(col.c1, 0.30 * br));
+      g.fillStyle = core;
+      g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+
+      /* 2. liquid light inside the orb */
+      g.save();
+      g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.clip();
+      g.globalCompositeOperation = 'lighter';
+      for (i = 0; i < blobs.length; i++) {
+        var bl = blobs[i];
+        var bx = cx + Math.sin(TAU * tt / bl.px + bl.ph1) * bl.ax * R;
+        var by = cy + Math.cos(TAU * tt / bl.py + bl.ph2) * bl.ay * R;
+        var br2 = bl.r * R;
+        var gr = g.createRadialGradient(bx, by, 0, bx, by, br2);
+        var cc = bl.hot ? col.c1 : col.c2;
+        gr.addColorStop(0, rgba(cc, bl.a * br));
+        gr.addColorStop(1, rgba(cc, 0));
+        g.fillStyle = gr;
+        g.fillRect(bx - br2, by - br2, br2 * 2, br2 * 2);
+      }
+      g.restore();
+      g.globalCompositeOperation = 'source-over';
+
+      if (still) return;
+
+      /* 3. ripples: one per 8 s, start of each exhale (b peaks at tt = 4 + 8k) */
+      g.lineWidth = 1.5;
+      var k = Math.floor((tt - 4) / 8);
+      for (var j = k; j > k - 2; j--) {
+        var st = 4 + 8 * j;
+        var p = (tt - st) / 8;
+        if (p < 0 || p > 1) continue;
+        var e = 1 - Math.pow(1 - p, 2);
+        var rr = R * (1 + 0.6 * e);
+        g.strokeStyle = rgba(col.c1, 0.5 * (1 - p) * (1 - p));
+        g.beginPath(); g.arc(cx, cy, rr, 0, TAU); g.stroke();
+      }
+
+      /* 4. rotating halo arcs */
+      g.lineWidth = 1;
+      g.strokeStyle = rgba(col.c1, 0.15);
+      var a1 = TAU * tt / 90, a2 = -TAU * tt / 140;
+      g.beginPath(); g.arc(cx, cy, R0 * 1.25, a1, a1 + 1.7); g.stroke();
+      g.beginPath(); g.arc(cx, cy, R0 * 1.25, a1 + Math.PI, a1 + Math.PI + 1.7); g.stroke();
+      g.setLineDash([2, 10]);
+      g.beginPath(); g.arc(cx, cy, R0 * 1.31, a2, a2 + TAU); g.stroke();
+      g.setLineDash([]);
+
+      /* 5. dust */
+      g.fillStyle = col.c1;
+      for (i = 0; i < dust.length; i++) {
+        var d = dust[i];
+        var an = d.ang + d.dir * TAU * tt / d.per;
+        var rd = R0 * d.rad;
+        var tw = 0.5 + 0.5 * Math.sin(TAU * tt / d.tw + d.tph);
+        g.globalAlpha = d.base * (0.4 + 0.6 * tw);
+        g.beginPath();
+        g.arc(cx + Math.cos(an) * rd, cy + Math.sin(an) * rd, d.size * 0.6, 0, TAU);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+    }
+
+    function shouldRun() {
+      return S.active && !S.flicker && !document.hidden && !$('session').hidden && !rm;
+    }
+    function loop(now) {
+      rafId = 0;
+      if (!shouldRun()) return;
+      if (now - lastDraw >= 33) { lastDraw = now; draw(now, false); }
+      rafId = raf(loop);
+    }
+    function sync() {
+      var show = S.active && !S.flicker;
+      cv.hidden = !show;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      if (!show) return;
+      resize();
+      if (rm) { draw(performance.now(), true); return; }
+      if (!document.hidden) {
+        if (!t0) t0 = performance.now();
+        lastDraw = 0;
+        rafId = raf(loop);
+      }
+    }
+    window.addEventListener('resize', function () { if (!cv.hidden) resize(); });
+    window.addEventListener('orientationchange', function () { setTimeout(function () { if (!cv.hidden) resize(); }, 200); });
+    document.addEventListener('visibilitychange', sync);
+    if (window.ResizeObserver) {
+      var lw = 0, lh = 0;
+      new ResizeObserver(function () {
+        var r = cv.parentNode.getBoundingClientRect();
+        if (cv.hidden || (Math.abs(r.width - lw) < 1 && Math.abs(r.height - lh) < 1)) { lw = r.width; lh = r.height; return; }
+        lw = r.width; lh = r.height; resize();
+      }).observe(cv.parentNode);
+    }
+    return { sync: sync };
+  })();
+
   function setVisualMode() {
     var light = S.flicker;
     flashEl.hidden = !light;
-    $('glow').hidden = light;
+    orb.sync();
     $('modeLine').textContent = light ? 'Звук и свет' : 'Звук';
     $('tip').textContent = (light
       ? 'Смотрите не прямо, можно периферийным зрением. Комната может быть приглушена.'
