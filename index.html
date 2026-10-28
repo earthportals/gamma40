@@ -317,6 +317,7 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     <input type="range" id="volume" min="0" max="100" step="1" value="40" aria-labelledby="volLabel">
     <button type="button" class="btn secondary" id="testBtn">Проверить звук</button>
     <p class="small muted" style="margin:10px 0 0">Звук играет 2 секунды. Выберите комфортную громкость, не громкую.</p>
+    <p class="small muted" style="margin:10px 0 0">Звук продолжит играть, если свернуть страницу или заблокировать телефон. Свет работает только при включённом экране.</p>
   </section>
 
   <button type="button" class="btn primary" id="startBtn">Начать сеанс</button>
@@ -458,25 +459,30 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
   });
 
   /* ---------- audio ---------- */
-  var ctx = null, gain = null, loopBuf = null, sessionSrc = null, testSrc = null, testTimer = 0;
+  var ctx = null, clickEl = null, testTimer = 0, testing = false;
 
-  function makeBuffer(c) {
-    var sr = c.sampleRate;
-    var buf = c.createBuffer(1, sr, sr);
-    var data = buf.getChannelData(0);
-    var period = sr / 40;                       /* exactly 40 clicks per 1 s loop */
-    var len = Math.max(8, Math.round(sr * 0.0015));   /* ~1.5 ms burst */
-    var freq = 4000;
-    for (var i = 0; i < 40; i++) {
-      var start = Math.round(i * period);
+  /* Click track as a WAV blob: 24000 Hz mono 16-bit, 30 s, 1200 clicks (period = 600 samples, exactly 40 Hz).
+     Played through an <audio> element, which keeps playing in the background on iOS and Android. */
+  function makeClickWav() {
+    var sr = 24000, secs = 30, total = sr * secs;
+    var period = sr / 40;                                   /* 600 samples */
+    var len = Math.max(8, Math.round(sr * 0.0015));         /* ~1.5 ms burst */
+    var freq = 3000;
+    var b = new ArrayBuffer(44 + total * 2), v = new DataView(b);
+    var w = function (o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + total * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, total * 2, true);
+    for (var i = 0; i < 40 * secs; i++) {
+      var start = i * period;
       for (var k = 0; k < len; k++) {
-        var idx = start + k;
-        if (idx >= sr) break;
         var env = 0.5 * (1 - Math.cos(2 * Math.PI * k / (len - 1)));   /* raised cosine */
-        data[idx] += 0.9 * env * Math.sin(2 * Math.PI * freq * k / sr);
+        var s = 0.9 * env * Math.sin(2 * Math.PI * freq * k / sr);
+        v.setInt16(44 + (start + k) * 2, Math.round(s * 32767), true);
       }
     }
-    return buf;
+    return new Blob([b], { type: 'audio/wav' });
   }
   /* iPhone: Web Audio is muted by the silent switch unless the audio session is "playback".
      audioSession (iOS 17+) sets it directly; a looping silent <audio> element does it on older iOS. */
@@ -500,35 +506,49 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     } catch (e) {}
   }
   function ensureAudio() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return false;
     unlockIOSAudio();
+    /* AudioContext is only used for the end chime; it must be created on a tap */
+    var AC = window.AudioContext || window.webkitAudioContext;
     try {
-      if (!ctx) {
-        ctx = new AC();
-        gain = ctx.createGain();
-        gain.connect(ctx.destination);
-        loopBuf = makeBuffer(ctx);
+      if (AC) {
+        if (!ctx) { ctx = new AC(); }
+        if (ctx.state === 'suspended') { var p = ctx.resume(); if (p && p.catch) p.catch(function () {}); }
       }
-      if (ctx.state === 'suspended') { var p = ctx.resume(); if (p && p.catch) p.catch(function () {}); }
+    } catch (e) { /* chime is optional */ }
+    try {
+      if (!clickEl) {
+        clickEl = document.createElement('audio');
+        clickEl.loop = true;
+        clickEl.preload = 'auto';
+        clickEl.setAttribute('playsinline', '');
+        clickEl.src = URL.createObjectURL(makeClickWav());
+        clickEl.addEventListener('timeupdate', checkEnd);
+      }
       applyVolume();
       return true;
-    } catch (e) { return false; }
+    } catch (e2) { clickEl = null; return false; }
   }
   function volumeGain() { var v = parseInt(volEl.value, 10) / 100; return v * v * 0.9; }
   function applyVolume() {
-    if (!gain) return;
-    try { gain.gain.setTargetAtTime(volumeGain(), ctx.currentTime, 0.02); } catch (e) { gain.gain.value = volumeGain(); }
+    if (!clickEl) return;
+    try { clickEl.volume = Math.max(0, Math.min(1, volumeGain())); } catch (e) { /* ignore */ }
   }
-  function startClicks() {
-    var s = ctx.createBufferSource();
-    s.buffer = loopBuf;
-    s.loop = true;
-    s.connect(gain);
-    s.start();
-    return s;
+  function playClicks() {
+    if (!clickEl) return;
+    try {
+      applyVolume();
+      var p = clickEl.play();
+      if (p && p.catch) {
+        p.catch(function () {
+          if (S.active && S.running) { setNote('Звук не запустился. Нажмите «Пауза», затем «Продолжить».'); }
+        });
+      }
+    } catch (e) { /* ignore */ }
   }
-  function stopSrc(s) { if (s) { try { s.stop(); } catch (e) { /* ignore */ } try { s.disconnect(); } catch (e2) { /* ignore */ } } }
+  function stopClicks() {
+    if (!clickEl) return;
+    try { clickEl.pause(); clickEl.currentTime = 0; } catch (e) { /* ignore */ }
+  }
   function chime() {
     if (!ctx) return;
     try {
@@ -546,20 +566,20 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
 
   var testBtn = $('testBtn');
   testBtn.addEventListener('click', function () {
-    if (testSrc) return;
+    if (testing || S.active) return;
     if (!ensureAudio()) { testBtn.textContent = 'Звук не поддерживается'; return; }
-    testSrc = startClicks();
+    testing = true;
+    playClicks();
     testBtn.disabled = true;
     testBtn.textContent = 'Играет...';
     testTimer = setTimeout(function () {
-      stopSrc(testSrc); testSrc = null;
-      testBtn.disabled = false;
-      testBtn.textContent = 'Проверить звук';
+      testTimer = 0;
+      cancelTest();
     }, 2000);
   });
   function cancelTest() {
     if (testTimer) { clearTimeout(testTimer); testTimer = 0; }
-    stopSrc(testSrc); testSrc = null;
+    if (testing) { stopClicks(); testing = false; }
     testBtn.disabled = false;
     testBtn.textContent = 'Проверить звук';
   }
@@ -659,7 +679,7 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
   }
 
   /* ---------- session ---------- */
-  var S = { active: false, running: false, total: 0, elapsed: 0, lastStart: 0, flicker: false, n: 0, autoPaused: false, wasRunning: false };
+  var S = { active: false, running: false, total: 0, elapsed: 0, lastStart: 0, flicker: false, n: 0, flickerPending: false, wasRunning: false };
   var tickId = 0;
   var fl = { raf: 0, frame: 0, state: false, win: [], last: 0, lastCheck: 0, badSince: 0, bright: 1 };
   var flashEl = $('flash');
@@ -672,7 +692,8 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     window.scrollTo(0, 0);
   }
   function getElapsed() {
-    return S.elapsed + (S.running ? (performance.now() - S.lastStart) / 1000 : 0);
+    /* wall-clock based: accumulated playing time (excludes manual pauses) + time since last start/resume */
+    return S.elapsed + (S.running ? Math.max(0, Date.now() - S.lastStart) / 1000 : 0);
   }
   function renderTimer() {
     var el = getElapsed();
@@ -682,9 +703,27 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     $('barFill').style.width = Math.min(100, (el / S.total) * 100) + '%';
     return rem;
   }
+  function checkEnd() {
+    if (!S.active || !S.running) return;
+    if (getElapsed() >= S.total) { finish(true); }
+  }
   function tick() {
     if (!S.active) return;
-    if (renderTimer() <= 0 && S.running) { finish(true); }
+    if (!document.hidden) { renderTimer(); }
+    checkEnd();
+  }
+  function setPlaybackState(state) {
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state; } catch (e) { /* ignore */ }
+  }
+  function setupMediaSession(minutes) {
+    try {
+      if (!('mediaSession' in navigator)) return;
+      if (window.MediaMetadata) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: 'Гамма 40', artist: '40 Гц, сеанс ' + minutes + ' мин' });
+      }
+      navigator.mediaSession.setActionHandler('play', function () { resumeSession(); });
+      navigator.mediaSession.setActionHandler('pause', function () { pauseSession(); });
+    } catch (e) { /* ignore */ }
   }
   function setNote(text) {
     var n = $('sessionNote');
@@ -696,9 +735,10 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     flashEl.hidden = !light;
     $('glow').hidden = light;
     $('modeLine').textContent = light ? 'Звук и свет' : 'Звук';
-    $('tip').textContent = light
+    $('tip').textContent = (light
       ? 'Смотрите не прямо, можно периферийным зрением. Комната может быть приглушена.'
-      : 'Можно закрыть глаза или смотреть на круг. Слушайте ровные щелчки.';
+      : 'Можно закрыть глаза или смотреть на круг. Слушайте ровные щелчки.') +
+      ' Звук продолжит играть, если свернуть страницу или заблокировать телефон. Свет работает только при включённом экране.';
   }
 
   /* flicker loop */
@@ -751,12 +791,12 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     cancelTest();
     S.total = getDuration() * 60;
     S.elapsed = 0;
-    S.autoPaused = false;
+    S.flickerPending = false;
     S.n = screenN;
     S.flicker = lightOn && measureDone && screenN > 0;
     S.active = true;
     S.running = true;
-    S.lastStart = performance.now();
+    S.lastStart = Date.now();
     showScreen('session');
     $('pauseBtn').textContent = 'Пауза';
     $('confirmBox').hidden = true;
@@ -764,20 +804,22 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     setNote(audioOk ? '' : 'Звук не поддерживается этим браузером.');
     setVisualMode();
     renderTimer();
-    if (audioOk) { sessionSrc = startClicks(); }
+    if (audioOk) { stopClicks(); playClicks(); }
     if (S.flicker) { startFlicker(); }
+    setupMediaSession(getDuration());
+    setPlaybackState('playing');
     requestWake();
     if (tickId) clearInterval(tickId);
-    tickId = setInterval(tick, 200);
+    tickId = setInterval(tick, 1000);
     $('pauseBtn').focus();
   }
 
-  function pauseSession(auto) {
+  function pauseSession() {
     if (!S.active || !S.running) return;
     S.elapsed = getElapsed();
     S.running = false;
-    S.autoPaused = !!auto;
-    if (ctx && ctx.state === 'running') { var p = ctx.suspend(); if (p && p.catch) p.catch(function () {}); }
+    if (clickEl) { try { clickEl.pause(); } catch (e) { /* ignore */ } }
+    setPlaybackState('paused');
     stopFlicker();
     $('pauseBtn').textContent = 'Продолжить';
     renderTimer();
@@ -785,12 +827,13 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
   function resumeSession() {
     if (!S.active || S.running) return;
     S.running = true;
-    S.autoPaused = false;
-    S.lastStart = performance.now();
-    if (ctx) { var p = ctx.resume(); if (p && p.catch) p.catch(function () {}); }
-    if (S.flicker) { startFlicker(); }
+    S.lastStart = Date.now();
+    playClicks();
+    setPlaybackState('playing');
+    if (S.flicker) {
+      if (document.hidden) { S.flickerPending = true; } else { startFlicker(); }
+    }
     $('pauseBtn').textContent = 'Пауза';
-    if ($('sessionNote').textContent.indexOf('Сеанс на паузе') === 0) { setNote(''); }
     requestWake();
   }
 
@@ -802,16 +845,16 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     S.running = false;
     clearInterval(tickId); tickId = 0;
     stopFlicker();
-    stopSrc(sessionSrc); sessionSrc = null;
+    S.flickerPending = false;
+    stopClicks();
+    setPlaybackState('none');
     releaseWake();
     if (secs > 0) addLog(secs);
-    if (natural) {
-      if (ctx && ctx.state !== 'running') {
+    if (natural && !document.hidden && ctx) {
+      if (ctx.state !== 'running') {
         var p = ctx.resume();
         if (p && p.then) { p.then(chime).catch(function () {}); } else { chime(); }
       } else { chime(); }
-    } else if (ctx && ctx.state === 'running') {
-      /* nothing playing now; keep context for later tests */
     }
     var min = Math.floor(secs / 60);
     $('doneText').textContent = secs < 60 ? 'Добавлено: меньше минуты.' : 'Добавлено: ' + min + ' мин.';
@@ -848,11 +891,17 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
   /* ---------- visibility ---------- */
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
-      if (S.active && S.running) { pauseSession(true); }
+      /* sound keeps playing; only the light flicker stops */
+      if (S.active && S.flicker && S.running) { S.flickerPending = true; }
+      stopFlicker();
     } else {
       if (S.active) {
+        checkEnd();
+        if (!S.active) return;
         requestWake();
-        if (S.autoPaused) { setNote('Сеанс на паузе. Не выключайте экран.'); }
+        renderTimer();
+        if (S.running && clickEl && clickEl.paused) { playClicks(); }
+        if (S.flickerPending && S.flicker && S.running) { S.flickerPending = false; startFlicker(); }
       } else if (!measureDone && !measuring) {
         runCheck();
       }
