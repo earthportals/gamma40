@@ -467,7 +467,7 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
     var sr = 24000, secs = 30, total = sr * secs;
     var period = sr / 40;                                   /* 600 samples */
     var len = Math.max(8, Math.round(sr * 0.0015));         /* ~1.5 ms burst */
-    var freq = 3000;
+    var freq = 4000;
     var b = new ArrayBuffer(44 + total * 2), v = new DataView(b);
     var w = function (o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
     w(0, 'RIFF'); v.setUint32(4, 36 + total * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
@@ -478,7 +478,7 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
       var start = i * period;
       for (var k = 0; k < len; k++) {
         var env = 0.5 * (1 - Math.cos(2 * Math.PI * k / (len - 1)));   /* raised cosine */
-        var s = 0.9 * env * Math.sin(2 * Math.PI * freq * k / sr);
+        var s = 0.3 * env * Math.sin(2 * Math.PI * freq * k / sr);
         v.setInt16(44 + (start + k) * 2, Math.round(s * 32767), true);
       }
     }
@@ -521,14 +521,20 @@ input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius
         clickEl.loop = true;
         clickEl.preload = 'auto';
         clickEl.setAttribute('playsinline', '');
-        clickEl.src = URL.createObjectURL(makeClickWav());
+        /* 30-min pre-rendered track (48 kHz, 4 kHz clicks, flat level): only one loop seam per 30 min.
+           Falls back to the generated 30 s WAV if the file can't load. */
+        clickEl.src = 'clicks40.m4a';
+        clickEl.addEventListener('error', function onErr() {
+          clickEl.removeEventListener('error', onErr);
+          try { clickEl.src = URL.createObjectURL(makeClickWav()); } catch (e3) {}
+        });
         clickEl.addEventListener('timeupdate', checkEnd);
       }
       applyVolume();
       return true;
     } catch (e2) { clickEl = null; return false; }
   }
-  function volumeGain() { var v = parseInt(volEl.value, 10) / 100; return v * v * 0.9; }
+  function volumeGain() { var v = parseInt(volEl.value, 10) / 100; return Math.min(1, v * v * 3); }
   function applyVolume() {
     if (!clickEl) return;
     try { clickEl.volume = Math.max(0, Math.min(1, volumeGain())); } catch (e) { /* ignore */ }
