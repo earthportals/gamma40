@@ -1,0 +1,867 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Гамма 40</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Unbounded:wght@600&display=swap">
+<style>
+:root {
+  --bg: #e8eef4;
+  --fg: #111c28;
+  --muted: #44566a;
+  --card: #f5f8fb;
+  --line: #bccad8;
+  --accent: #f0a020;
+  --on-accent: #1c1300;
+  --accent-text: #8a4b00;
+  --focus: #1b5fb5;
+  --warn-bg: #fdf0d6;
+  --warn-fg: #4a2e00;
+  --warn-line: #e3c88f;
+  --panel: #0c1422;
+  --panel-fg: #eef3f9;
+  --panel-muted: #a9b8c9;
+  --panel-line: #2a3a52;
+  --stage: #060a13;
+  --flash-on: #ffe2a0;
+  --flash-off: #000000;
+  --glow-1: #f7b84a;
+  --glow-2: #8a4b00;
+  --track: #c3cfdb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a1020;
+    --fg: #e7eef7;
+    --muted: #9fb0c3;
+    --card: #121b2e;
+    --line: #26354e;
+    --accent: #f2a93b;
+    --on-accent: #1c1300;
+    --accent-text: #f2b04f;
+    --focus: #7db4ff;
+    --warn-bg: #2a2010;
+    --warn-fg: #f5deb0;
+    --warn-line: #5a4519;
+    --panel: #0c1422;
+    --panel-fg: #eef3f9;
+    --panel-muted: #a9b8c9;
+    --panel-line: #2a3a52;
+    --stage: #060a13;
+    --flash-on: #ffe2a0;
+    --flash-off: #000000;
+    --glow-1: #f7b84a;
+    --glow-2: #8a4b00;
+    --track: #26354e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a1020;
+  --fg: #e7eef7;
+  --muted: #9fb0c3;
+  --card: #121b2e;
+  --line: #26354e;
+  --accent: #f2a93b;
+  --on-accent: #1c1300;
+  --accent-text: #f2b04f;
+  --focus: #7db4ff;
+  --warn-bg: #2a2010;
+  --warn-fg: #f5deb0;
+  --warn-line: #5a4519;
+  --panel: #0c1422;
+  --panel-fg: #eef3f9;
+  --panel-muted: #a9b8c9;
+  --panel-line: #2a3a52;
+  --stage: #060a13;
+  --flash-on: #ffe2a0;
+  --flash-off: #000000;
+  --glow-1: #f7b84a;
+  --glow-2: #8a4b00;
+  --track: #26354e;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 19px;
+  line-height: 1.5;
+  font-weight: 500;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: max(20px, env(safe-area-inset-top, 0px)) max(28px, env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+body.in-session { overflow: hidden; padding: 0; }
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+
+.wrap { max-width: 560px; margin: 0 auto; display: grid; gap: 18px; }
+
+h1 {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 44px;
+  line-height: 1.1;
+  margin: 8px 0 0;
+  letter-spacing: -0.01em;
+}
+h1 .num { color: var(--accent-text); }
+.lead { margin: 0; font-size: 20px; color: var(--muted); }
+h2 { margin: 0 0 10px; font-size: 20px; font-weight: 800; }
+
+.card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 22px;
+  padding: 18px;
+}
+.muted { color: var(--muted); }
+.small { font-size: 16px; }
+
+/* duration chips */
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; margin: 0 0 10px; font-size: 20px; font-weight: 800; }
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.chip { position: relative; display: block; }
+.chip input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.chip span {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 64px; padding: 6px 4px;
+  border: 2px solid var(--line); border-radius: 18px;
+  background: var(--card); font-weight: 800; font-size: 20px; line-height: 1.15;
+}
+.chip input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.chip input:focus-visible + span { outline: 4px solid var(--focus); outline-offset: 3px; }
+
+/* mode card */
+.mode-title { font-weight: 800; font-size: 20px; margin: 0 0 6px; }
+.mode-sub { margin: 0; color: var(--muted); font-size: 17px; }
+.note {
+  margin: 12px 0 0; padding: 12px 14px; border-radius: 14px;
+  background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-line);
+  font-size: 16px; line-height: 1.45;
+}
+
+.switch-row {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  min-height: 72px; margin-top: 14px; padding: 8px 12px;
+  background: transparent; border: 2px solid var(--line); border-radius: 18px;
+  text-align: left; font-weight: 800; font-size: 19px;
+}
+.switch-row .track {
+  flex: 0 0 auto; width: 64px; height: 36px; border-radius: 18px;
+  background: var(--track); position: relative; transition: background .2s;
+}
+.switch-row .track::after {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg); border: 2px solid var(--line); transition: transform .2s;
+}
+.switch-row[aria-checked="true"] .track { background: var(--accent); }
+.switch-row[aria-checked="true"] .track::after { transform: translateX(28px); border-color: var(--on-accent); }
+
+.check-row { display: flex; align-items: flex-start; gap: 14px; margin-top: 12px; font-weight: 700; cursor: pointer; }
+.check-row input { flex: 0 0 auto; width: 34px; height: 34px; margin: 2px 0 0; accent-color: var(--accent); }
+
+/* buttons */
+.btn {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  width: 100%; min-height: 72px; padding: 10px 14px;
+  border-radius: 20px; border: 2px solid var(--line);
+  background: transparent; font-weight: 800; font-size: 21px; line-height: 1.2;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-size: 26px; min-height: 84px; }
+.btn.secondary { background: var(--card); }
+.btn:active { transform: scale(0.98); }
+.btn[disabled] { opacity: 0.6; cursor: default; }
+
+/* volume */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 48px; background: transparent; margin: 4px 0 12px;
+}
+input[type="range"]::-webkit-slider-runnable-track { height: 12px; border-radius: 6px; background: var(--track); }
+input[type="range"]::-moz-range-track { height: 12px; border-radius: 6px; background: var(--track); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 42px; height: 42px; margin-top: -15px;
+  border-radius: 50%; background: var(--accent); border: 3px solid var(--on-accent);
+}
+input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); border: 3px solid var(--on-accent); }
+.vol-head { display: flex; justify-content: space-between; align-items: baseline; }
+.vol-head output { font-weight: 800; color: var(--accent-text); }
+
+/* log */
+.today { font-weight: 800; font-size: 20px; margin: 0 0 12px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.day { display: grid; justify-items: center; gap: 6px; font-size: 14px; color: var(--muted); font-weight: 700; }
+.dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--accent-text); background: transparent; }
+.dot.full { background: var(--accent); border-color: var(--accent); }
+.dot.half { background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
+.day.today-col { color: var(--fg); }
+.legend { margin: 12px 0 0; font-size: 15px; color: var(--muted); }
+
+.safety { border-color: var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); }
+.safety h2 { color: var(--warn-fg); }
+.safety p { margin: 0 0 8px; font-size: 18px; }
+.safety p:last-child { margin: 0; }
+
+/* session */
+#session { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--stage); color: var(--panel-fg); }
+.stage { position: relative; flex: 1 1 auto; min-height: 120px; display: grid; place-items: center; overflow: hidden; }
+#flash { position: absolute; inset: 0; background: var(--flash-off); }
+#flash.on { background: var(--flash-on); }
+.glow {
+  width: min(64vw, 40vh); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-1) 0%, var(--glow-2) 55%, rgba(0,0,0,0) 72%);
+  opacity: 0.8;
+  animation: breathe 8s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(0.72); opacity: 0.45; }
+  50% { transform: scale(1); opacity: 0.95; }
+}
+.panel {
+  flex: 0 0 auto; max-height: 75%; overflow-y: auto;
+  background: var(--panel); color: var(--panel-fg);
+  border-top: 2px solid var(--panel-line);
+  border-radius: 26px 26px 0 0;
+  padding: 18px max(16px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: grid; gap: 12px;
+}
+.panel-in { width: 100%; max-width: 560px; margin: 0 auto; display: grid; gap: 12px; }
+.mode-line { text-align: center; color: var(--panel-muted); font-size: 17px; margin: 0; font-weight: 700; }
+#timer {
+  text-align: center; font-size: 68px; line-height: 1; font-weight: 800;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; letter-spacing: 0.01em; margin: 0;
+}
+.bar { height: 8px; border-radius: 4px; background: var(--panel-line); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); }
+.session-note {
+  margin: 0; padding: 12px 14px; border-radius: 14px; font-size: 18px; font-weight: 700; text-align: center;
+  background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-line);
+}
+.tip { margin: 0; text-align: center; color: var(--panel-muted); font-size: 16px; }
+.btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.panel .btn { border-color: var(--panel-line); color: var(--panel-fg); font-size: 20px; padding: 10px 6px; }
+.panel .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-size: 20px; min-height: 72px; }
+.confirm-q { margin: 0; text-align: center; font-weight: 800; font-size: 21px; }
+
+/* done */
+#done { min-height: 100%; display: grid; align-content: center; }
+#done h2 { font-family: "Unbounded", "Manrope", system-ui, sans-serif; font-weight: 600; font-size: 32px; line-height: 1.2; margin: 0; }
+#done .big { font-size: 22px; margin: 0; }
+#done h2:focus { outline: none; }
+
+@media (max-width: 380px) {
+  h1 { font-size: 38px; }
+  #timer { font-size: 58px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow { animation: none; transform: scale(0.9); opacity: 0.8; }
+  .switch-row .track, .switch-row .track::after { transition: none; }
+  .btn:active { transform: none; }
+}
+</style></head><body>
+
+<main id="home" class="wrap">
+  <header>
+    <h1>Гамма <span class="num">40</span></h1>
+    <p class="lead">Звук и свет с частотой 40 раз в секунду. Час в день.</p>
+  </header>
+
+  <section class="card">
+    <fieldset id="durationSet">
+      <legend>Сколько длится сеанс</legend>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="duration" id="dur15" value="15"><span>15 минут</span></label>
+        <label class="chip"><input type="radio" name="duration" id="dur30" value="30"><span>30 минут</span></label>
+        <label class="chip"><input type="radio" name="duration" id="dur60" value="60" checked><span>60 минут</span></label>
+      </div>
+    </fieldset>
+  </section>
+
+  <section class="card" id="modeCard" aria-live="polite">
+    <p class="mode-title" id="modeTitle">Проверяем экран...</p>
+    <p class="mode-sub" id="modeSub">Это займёт пару секунд.</p>
+
+    <div id="lightBlock" hidden>
+      <button type="button" class="switch-row" id="lightToggle" role="switch" aria-checked="false">
+        <span class="track" aria-hidden="true"></span>
+        <span>Включить мерцающий свет</span>
+      </button>
+      <div id="lightConfirm" hidden>
+        <p class="note">Свет мерцает 40 раз в секунду. Перед включением подтвердите:</p>
+        <label class="check-row" for="safeCheck">
+          <input type="checkbox" id="safeCheck">
+          <span>Судорог и эпилепсии не было</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="iphoneNote" class="note" hidden>iPhone по умолчанию показывает веб-страницы с частотой 60 Гц, даже если экран умеет 120. Чтобы включить свет: 1) откройте эту страницу в Safari, а не внутри приложения Claude; 2) выключите режим энергосбережения; 3) Настройки - Приложения - Safari - Дополнительно - Feature Flags - выключите Prefer Page Rendering Updates near 60fps; 4) нажмите «Проверить экран ещё раз».</div>
+    <div id="recheckWrap" hidden style="margin-top:14px">
+      <button type="button" class="btn secondary" id="recheckBtn">Проверить экран ещё раз</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="vol-head">
+      <h2 id="volLabel" style="margin:0">Громкость</h2>
+      <output id="volOut" for="volume">40</output>
+    </div>
+    <input type="range" id="volume" min="0" max="100" step="1" value="40" aria-labelledby="volLabel">
+    <button type="button" class="btn secondary" id="testBtn">Проверить звук</button>
+    <p class="small muted" style="margin:10px 0 0">Звук играет 2 секунды. Выберите комфортную громкость, не громкую.</p>
+  </section>
+
+  <button type="button" class="btn primary" id="startBtn">Начать сеанс</button>
+
+  <section class="card" aria-labelledby="todayLine">
+    <p class="today" id="todayLine">Сегодня: 0 мин</p>
+    <div class="week" id="week" role="list" aria-label="Последние 7 дней"></div>
+    <p class="legend">Закрашено: 60 минут и больше. Половина: меньше часа.</p>
+  </section>
+
+  <section class="card safety" aria-labelledby="safeTitle">
+    <h2 id="safeTitle">Важно</h2>
+    <p>Если у человека бывали судороги или эпилепсия, мерцающий свет включать нельзя.</p>
+    <p>Перед ежедневными сеансами покажите это врачу.</p>
+    <p>Громкость - комфортная, не громкая.</p>
+    <p>Это не лекарство и не замена лечению.</p>
+  </section>
+</main>
+
+<main id="session" hidden aria-label="Сеанс">
+  <div class="stage" id="stage">
+    <div id="flash" hidden></div>
+    <div class="glow" id="glow" aria-hidden="true"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-in">
+      <p class="mode-line" id="modeLine">Звук</p>
+      <p id="timer" role="timer" aria-live="off">60:00</p>
+      <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+      <p class="session-note" id="sessionNote" role="status" hidden></p>
+      <div class="btn-row" id="ctrlRow">
+        <button type="button" class="btn primary" id="pauseBtn">Пауза</button>
+        <button type="button" class="btn" id="endBtn">Завершить</button>
+      </div>
+      <div id="confirmBox" hidden>
+        <p class="confirm-q">Завершить сеанс сейчас?</p>
+        <div class="btn-row" style="margin-top:10px">
+          <button type="button" class="btn" id="endYes">Да, завершить</button>
+          <button type="button" class="btn primary" id="endNo">Продолжить</button>
+        </div>
+      </div>
+      <p class="tip" id="tip"></p>
+    </div>
+  </div>
+</main>
+
+<main id="done" class="wrap" hidden>
+  <h2 id="doneTitle" tabindex="-1">Сеанс завершён</h2>
+  <p class="big" id="doneText"></p>
+  <p class="muted" id="doneToday" style="margin:0"></p>
+  <button type="button" class="btn primary" id="homeBtn">На главную</button>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var raf = window.requestAnimationFrame.bind(window);
+
+  /* ---------- storage ---------- */
+  var store = {
+    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+  };
+  function dateKey(d) {
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+  function readLog() {
+    try { var o = JSON.parse(store.get('gamma40.log') || '{}'); return (o && typeof o === 'object') ? o : {}; }
+    catch (e) { return {}; }
+  }
+  function addLog(seconds) {
+    var log = readLog(), k = dateKey(new Date());
+    log[k] = (Number(log[k]) || 0) + seconds;
+    var keys = Object.keys(log).sort();
+    while (keys.length > 60) { delete log[keys.shift()]; }
+    store.set('gamma40.log', JSON.stringify(log));
+  }
+  function todaySeconds() { return Number(readLog()[dateKey(new Date())]) || 0; }
+
+  /* ---------- helpers ---------- */
+  function median(a) {
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function nForRate(r) {
+    if (r >= 115 && r <= 125) return 3;
+    if (r >= 158 && r <= 162) return 4;
+    if (r >= 238 && r <= 242) return 6;
+    return 0;
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  /* ---------- home: log UI ---------- */
+  var DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  function renderLog() {
+    var log = readLog(), week = $('week'), html = '';
+    var now = new Date();
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      var sec = Number(log[dateKey(d)]) || 0;
+      var cls = sec >= 3600 ? 'full' : (sec > 0 ? 'half' : '');
+      var min = Math.floor(sec / 60);
+      var label = DAYS[d.getDay()] + ': ' + min + ' мин';
+      html += '<div class="day' + (i === 0 ? ' today-col' : '') + '" role="listitem" aria-label="' + label + '">' +
+              '<span class="dot ' + cls + '"></span><span>' + DAYS[d.getDay()] + '</span></div>';
+    }
+    week.innerHTML = html;
+    $('todayLine').textContent = 'Сегодня: ' + Math.floor(todaySeconds() / 60) + ' мин';
+  }
+
+  /* ---------- home: duration, volume ---------- */
+  var durIds = { '15': 'dur15', '30': 'dur30', '60': 'dur60' };
+  (function initDuration() {
+    var saved = store.get('gamma40.duration');
+    if (saved && durIds[saved]) { $(durIds[saved]).checked = true; }
+  })();
+  function getDuration() {
+    var r = document.querySelector('input[name="duration"]:checked');
+    return r ? parseInt(r.value, 10) : 60;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="duration"]'), function (el) {
+    el.addEventListener('change', function () { store.set('gamma40.duration', String(getDuration())); });
+  });
+
+  var volEl = $('volume');
+  (function initVolume() {
+    var v = parseInt(store.get('gamma40.volume'), 10);
+    if (!isNaN(v) && v >= 0 && v <= 100) { volEl.value = v; }
+    $('volOut').textContent = volEl.value;
+  })();
+  volEl.addEventListener('input', function () {
+    $('volOut').textContent = volEl.value;
+    store.set('gamma40.volume', volEl.value);
+    applyVolume();
+  });
+
+  /* ---------- audio ---------- */
+  var ctx = null, gain = null, loopBuf = null, sessionSrc = null, testSrc = null, testTimer = 0;
+
+  function makeBuffer(c) {
+    var sr = c.sampleRate;
+    var buf = c.createBuffer(1, sr, sr);
+    var data = buf.getChannelData(0);
+    var period = sr / 40;                       /* exactly 40 clicks per 1 s loop */
+    var len = Math.max(8, Math.round(sr * 0.0015));   /* ~1.5 ms burst */
+    var freq = 4000;
+    for (var i = 0; i < 40; i++) {
+      var start = Math.round(i * period);
+      for (var k = 0; k < len; k++) {
+        var idx = start + k;
+        if (idx >= sr) break;
+        var env = 0.5 * (1 - Math.cos(2 * Math.PI * k / (len - 1)));   /* raised cosine */
+        data[idx] += 0.9 * env * Math.sin(2 * Math.PI * freq * k / sr);
+      }
+    }
+    return buf;
+  }
+  /* iPhone: Web Audio is muted by the silent switch unless the audio session is "playback".
+     audioSession (iOS 17+) sets it directly; a looping silent <audio> element does it on older iOS. */
+  var unlockEl = null;
+  function unlockIOSAudio() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    try {
+      if (!unlockEl) {
+        var sr = 8000, n = sr / 2, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+        var w = function (o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+        w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+        w(36, 'data'); v.setUint32(40, n * 2, true);
+        unlockEl = document.createElement('audio');
+        unlockEl.src = URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+        unlockEl.loop = true;
+        unlockEl.setAttribute('playsinline', '');
+      }
+      var p = unlockEl.play(); if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function ensureAudio() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    unlockIOSAudio();
+    try {
+      if (!ctx) {
+        ctx = new AC();
+        gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        loopBuf = makeBuffer(ctx);
+      }
+      if (ctx.state === 'suspended') { var p = ctx.resume(); if (p && p.catch) p.catch(function () {}); }
+      applyVolume();
+      return true;
+    } catch (e) { return false; }
+  }
+  function volumeGain() { var v = parseInt(volEl.value, 10) / 100; return v * v * 0.9; }
+  function applyVolume() {
+    if (!gain) return;
+    try { gain.gain.setTargetAtTime(volumeGain(), ctx.currentTime, 0.02); } catch (e) { gain.gain.value = volumeGain(); }
+  }
+  function startClicks() {
+    var s = ctx.createBufferSource();
+    s.buffer = loopBuf;
+    s.loop = true;
+    s.connect(gain);
+    s.start();
+    return s;
+  }
+  function stopSrc(s) { if (s) { try { s.stop(); } catch (e) { /* ignore */ } try { s.disconnect(); } catch (e2) { /* ignore */ } } }
+  function chime() {
+    if (!ctx) return;
+    try {
+      var o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime;
+      var peak = Math.max(0.08, Math.sqrt(volumeGain()) * 0.35);
+      o.type = 'sine';
+      o.frequency.value = 528;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(peak, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.55);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t); o.stop(t + 1.6);
+    } catch (e) { /* ignore */ }
+  }
+
+  var testBtn = $('testBtn');
+  testBtn.addEventListener('click', function () {
+    if (testSrc) return;
+    if (!ensureAudio()) { testBtn.textContent = 'Звук не поддерживается'; return; }
+    testSrc = startClicks();
+    testBtn.disabled = true;
+    testBtn.textContent = 'Играет...';
+    testTimer = setTimeout(function () {
+      stopSrc(testSrc); testSrc = null;
+      testBtn.disabled = false;
+      testBtn.textContent = 'Проверить звук';
+    }, 2000);
+  });
+  function cancelTest() {
+    if (testTimer) { clearTimeout(testTimer); testTimer = 0; }
+    stopSrc(testSrc); testSrc = null;
+    testBtn.disabled = false;
+    testBtn.textContent = 'Проверить звук';
+  }
+
+  /* ---------- screen refresh detection ---------- */
+  var screenN = 0, measuredRate = 0, measuring = false, measureDone = false;
+
+  function measure(ms, cb) {
+    var prev = null, start = null, deltas = [], aborted = false;
+    function frame(t) {
+      if (document.hidden) { aborted = true; cb(null); return; }
+      if (prev !== null) deltas.push(t - prev);
+      prev = t;
+      if (start === null) start = t;
+      if (t - start < ms) { raf(frame); return; }
+      var d = deltas.slice(3);
+      if (d.length < 10) { cb(0); return; }
+      cb(1000 / median(d));
+    }
+    raf(frame);
+  }
+  function runCheck() {
+    if (measuring) return;
+    measuring = true;
+    renderMode();
+    measure(1500, function (rate) {
+      measuring = false;
+      if (rate === null) { measureDone = false; renderMode(); return; }
+      measureDone = true;
+      measuredRate = rate;
+      screenN = nForRate(rate);
+      renderMode();
+    });
+  }
+  var lightOn = false;
+  function renderMode() {
+    var title = $('modeTitle'), sub = $('modeSub');
+    var capable = measureDone && screenN > 0;
+    $('lightBlock').hidden = !capable;
+    var notCapable = measureDone && !capable;
+    $('recheckWrap').hidden = !(notCapable || (!measuring && !measureDone));
+    $('iphoneNote').hidden = !(notCapable && /iPhone/.test(navigator.userAgent || ''));
+    if (measuring) {
+      title.textContent = 'Проверяем экран...';
+      sub.textContent = 'Это займёт пару секунд.';
+      $('recheckBtn').disabled = true;
+      return;
+    }
+    $('recheckBtn').disabled = false;
+    if (!measureDone) {
+      title.textContent = 'Экран ещё не проверен';
+      sub.textContent = 'Нажмите кнопку ниже, когда страница на экране.';
+    } else if (capable) {
+      title.textContent = 'Свет: доступен (экран ' + (screenN * 40) + ' Гц)';
+      sub.textContent = 'Свет выключен, пока вы сами его не включите.';
+    } else {
+      title.textContent = 'Свет: этот экран не может мигать ровно 40 раз в секунду, поэтому будет только звук и спокойная картинка.';
+      sub.textContent = 'Частота экрана: около ' + Math.round(measuredRate) + ' Гц.';
+    }
+    if (!capable) { setLight(false); }
+  }
+  $('recheckBtn').addEventListener('click', function () { measureDone = false; runCheck(); });
+
+  /* ---------- light toggle with in-page confirmation ---------- */
+  var toggle = $('lightToggle'), safeCheck = $('safeCheck');
+  function setLight(on) {
+    lightOn = on;
+    toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (!on) { safeCheck.checked = false; $('lightConfirm').hidden = true; }
+  }
+  toggle.addEventListener('click', function () {
+    if (lightOn) { setLight(false); return; }
+    var box = $('lightConfirm');
+    box.hidden = !box.hidden;            /* first tap only asks for confirmation */
+    if (!box.hidden) { safeCheck.focus(); }
+  });
+  safeCheck.addEventListener('change', function () {
+    lightOn = safeCheck.checked;
+    toggle.setAttribute('aria-checked', lightOn ? 'true' : 'false');
+  });
+
+  /* ---------- wake lock ---------- */
+  var wakeLock = null;
+  function requestWake() {
+    try {
+      if (navigator.wakeLock && navigator.wakeLock.request) {
+        navigator.wakeLock.request('screen').then(function (l) {
+          wakeLock = l;
+          l.addEventListener('release', function () { if (wakeLock === l) wakeLock = null; });
+        }).catch(function () { /* tolerate */ });
+      }
+    } catch (e) { /* tolerate */ }
+  }
+  function releaseWake() {
+    try { if (wakeLock) { wakeLock.release().catch(function () {}); } } catch (e) { /* ignore */ }
+    wakeLock = null;
+  }
+
+  /* ---------- session ---------- */
+  var S = { active: false, running: false, total: 0, elapsed: 0, lastStart: 0, flicker: false, n: 0, autoPaused: false, wasRunning: false };
+  var tickId = 0;
+  var fl = { raf: 0, frame: 0, state: false, win: [], last: 0, lastCheck: 0, badSince: 0, bright: 1 };
+  var flashEl = $('flash');
+
+  function showScreen(name) {
+    $('home').hidden = name !== 'home';
+    $('session').hidden = name !== 'session';
+    $('done').hidden = name !== 'done';
+    document.body.classList.toggle('in-session', name === 'session');
+    window.scrollTo(0, 0);
+  }
+  function getElapsed() {
+    return S.elapsed + (S.running ? (performance.now() - S.lastStart) / 1000 : 0);
+  }
+  function renderTimer() {
+    var el = getElapsed();
+    var rem = Math.max(0, S.total - el);
+    var s = Math.ceil(rem - 0.0001);
+    $('timer').textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+    $('barFill').style.width = Math.min(100, (el / S.total) * 100) + '%';
+    return rem;
+  }
+  function tick() {
+    if (!S.active) return;
+    if (renderTimer() <= 0 && S.running) { finish(true); }
+  }
+  function setNote(text) {
+    var n = $('sessionNote');
+    n.textContent = text || '';
+    n.hidden = !text;
+  }
+  function setVisualMode() {
+    var light = S.flicker;
+    flashEl.hidden = !light;
+    $('glow').hidden = light;
+    $('modeLine').textContent = light ? 'Звук и свет' : 'Звук';
+    $('tip').textContent = light
+      ? 'Смотрите не прямо, можно периферийным зрением. Комната может быть приглушена.'
+      : 'Можно закрыть глаза или смотреть на круг. Слушайте ровные щелчки.';
+  }
+
+  /* flicker loop */
+  function flashOff() { flashEl.classList.remove('on'); fl.state = false; }
+  function startFlicker() {
+    fl.frame = 0; fl.state = false; fl.win = []; fl.last = 0; fl.lastCheck = 0; fl.badSince = 0;
+    fl.bright = Math.max(1, Math.floor(S.n / 2));
+    if (fl.raf) cancelAnimationFrame(fl.raf);
+    fl.raf = raf(flickerLoop);
+  }
+  function stopFlicker() {
+    if (fl.raf) { cancelAnimationFrame(fl.raf); fl.raf = 0; }
+    flashOff();
+  }
+  function flickerLoop(t) {
+    if (!S.running || !S.flicker) { fl.raf = 0; return; }
+    if (fl.last) {
+      fl.win.push(t - fl.last);
+      if (fl.win.length > 90) fl.win.shift();
+    } else {
+      fl.lastCheck = t;
+    }
+    fl.last = t;
+    var on = (fl.frame % S.n) < fl.bright;
+    fl.frame++;
+    if (on !== fl.state) { flashEl.classList.toggle('on', on); fl.state = on; }
+    if (t - fl.lastCheck > 500 && fl.win.length >= 30) {
+      fl.lastCheck = t;
+      var rate = 1000 / median(fl.win);
+      if (nForRate(rate) === S.n) {
+        fl.badSince = 0;
+      } else if (!fl.badSince) {
+        fl.badSince = t;
+      } else if (t - fl.badSince > 2000) {
+        dropToSound();
+        return;
+      }
+    }
+    fl.raf = raf(flickerLoop);
+  }
+  function dropToSound() {
+    S.flicker = false;
+    stopFlicker();
+    setVisualMode();
+    setNote('Экран перешёл на 60 Гц, свет отключён, звук продолжается.');
+  }
+
+  function startSession() {
+    var audioOk = ensureAudio();
+    cancelTest();
+    S.total = getDuration() * 60;
+    S.elapsed = 0;
+    S.autoPaused = false;
+    S.n = screenN;
+    S.flicker = lightOn && measureDone && screenN > 0;
+    S.active = true;
+    S.running = true;
+    S.lastStart = performance.now();
+    showScreen('session');
+    $('pauseBtn').textContent = 'Пауза';
+    $('confirmBox').hidden = true;
+    $('ctrlRow').hidden = false;
+    setNote(audioOk ? '' : 'Звук не поддерживается этим браузером.');
+    setVisualMode();
+    renderTimer();
+    if (audioOk) { sessionSrc = startClicks(); }
+    if (S.flicker) { startFlicker(); }
+    requestWake();
+    if (tickId) clearInterval(tickId);
+    tickId = setInterval(tick, 200);
+    $('pauseBtn').focus();
+  }
+
+  function pauseSession(auto) {
+    if (!S.active || !S.running) return;
+    S.elapsed = getElapsed();
+    S.running = false;
+    S.autoPaused = !!auto;
+    if (ctx && ctx.state === 'running') { var p = ctx.suspend(); if (p && p.catch) p.catch(function () {}); }
+    stopFlicker();
+    $('pauseBtn').textContent = 'Продолжить';
+    renderTimer();
+  }
+  function resumeSession() {
+    if (!S.active || S.running) return;
+    S.running = true;
+    S.autoPaused = false;
+    S.lastStart = performance.now();
+    if (ctx) { var p = ctx.resume(); if (p && p.catch) p.catch(function () {}); }
+    if (S.flicker) { startFlicker(); }
+    $('pauseBtn').textContent = 'Пауза';
+    if ($('sessionNote').textContent.indexOf('Сеанс на паузе') === 0) { setNote(''); }
+    requestWake();
+  }
+
+  function finish(natural) {
+    if (!S.active) return;
+    var secs = Math.round(natural ? S.total : getElapsed());
+    if (secs > S.total) secs = S.total;
+    S.active = false;
+    S.running = false;
+    clearInterval(tickId); tickId = 0;
+    stopFlicker();
+    stopSrc(sessionSrc); sessionSrc = null;
+    releaseWake();
+    if (secs > 0) addLog(secs);
+    if (natural) {
+      if (ctx && ctx.state !== 'running') {
+        var p = ctx.resume();
+        if (p && p.then) { p.then(chime).catch(function () {}); } else { chime(); }
+      } else { chime(); }
+    } else if (ctx && ctx.state === 'running') {
+      /* nothing playing now; keep context for later tests */
+    }
+    var min = Math.floor(secs / 60);
+    $('doneText').textContent = secs < 60 ? 'Добавлено: меньше минуты.' : 'Добавлено: ' + min + ' мин.';
+    $('doneToday').textContent = 'Сегодня всего: ' + Math.floor(todaySeconds() / 60) + ' мин.';
+    showScreen('done');
+    $('doneTitle').focus();
+  }
+
+  $('startBtn').addEventListener('click', startSession);
+  $('pauseBtn').addEventListener('click', function () {
+    if (S.running) pauseSession(false); else resumeSession();
+  });
+  $('endBtn').addEventListener('click', function () {
+    S.wasRunning = S.running;
+    pauseSession(false);
+    $('ctrlRow').hidden = true;
+    $('confirmBox').hidden = false;
+    $('endNo').focus();
+  });
+  $('endNo').addEventListener('click', function () {
+    $('confirmBox').hidden = true;
+    $('ctrlRow').hidden = false;
+    if (S.wasRunning) resumeSession();
+    $('pauseBtn').focus();
+  });
+  $('endYes').addEventListener('click', function () { finish(false); });
+  $('homeBtn').addEventListener('click', function () {
+    renderLog();
+    showScreen('home');
+    if (ctx && ctx.state === 'running') { /* idle context is fine */ }
+    $('startBtn').focus();
+  });
+
+  /* ---------- visibility ---------- */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (S.active && S.running) { pauseSession(true); }
+    } else {
+      if (S.active) {
+        requestWake();
+        if (S.autoPaused) { setNote('Сеанс на паузе. Не выключайте экран.'); }
+      } else if (!measureDone && !measuring) {
+        runCheck();
+      }
+    }
+  });
+
+  /* ---------- init ---------- */
+  renderLog();
+  runCheck();
+})();
+</script>
+</body></html>
