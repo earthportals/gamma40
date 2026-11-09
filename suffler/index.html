@@ -298,10 +298,10 @@ var THEMES=[
   {id:'ocean',name:'Океан',bg:'#06304A',fg:'#E6F6FF',acc:'#3DDCFF'},
   {id:'sunset',name:'Закат',bg:'#3A1530',fg:'#FFE9DA',acc:'#FF8A3D'}
 ];
-var DEF={theme:'classic',countdown:true,mirrorText:false,mode:'block',lines:3,opacity:0.78,fontSize:26,wpm:120,noCamera:false,navX:null,navY:null,navCompact:false};
+var DEF={theme:'classic',countdown:true,mirrorText:false,mode:'block',lines:3,opacity:0.78,fontSize:26,wpm:120,noCamera:false,bitrate:12000000,navX:null,navY:null,navCompact:false};
 var S=(function(){var o=loadJSON('suffler.settings',{});var r={};for(var k in DEF)r[k]=(o&&typeof o[k]===typeof DEF[k]&&o[k]!==null)?o[k]:DEF[k];
   if(r.mode!=='line'&&r.mode!=='block')r.mode='block';
-  r.lines=clamp(Math.round(r.lines),1,5);r.fontSize=clamp(Math.round(r.fontSize),10,48);r.wpm=clamp(r.wpm,30,260);r.opacity=clamp(r.opacity,.2,1);return r;})();
+  r.lines=clamp(Math.round(r.lines),1,5);r.fontSize=clamp(Math.round(r.fontSize),10,48);r.wpm=clamp(r.wpm,30,260);if(r.bitrate!==6000000&&r.bitrate!==12000000&&r.bitrate!==20000000)r.bitrate=12000000;r.opacity=clamp(r.opacity,.2,1);return r;})();
 function saveSettings(){saveJSON('suffler.settings',S);}
 function hexRgb(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
 function lumOf(c){return .299*c[0]+.587*c[1]+.114*c[2];}
@@ -650,6 +650,7 @@ function startCamera(){
     return;
   }
   var my=camReq;
+  var c0={video:{facingMode:'user',width:{ideal:2160},height:{ideal:3840},aspectRatio:{ideal:9/16},frameRate:{ideal:30}},audio:{channelCount:{ideal:1},sampleRate:{ideal:48000}}};
   var c1={video:{facingMode:'user',width:{ideal:1080},height:{ideal:1920}},audio:true};
   var c2={video:{facingMode:'user'},audio:true};
   function ok(s){
@@ -657,17 +658,46 @@ function startCamera(){
     stream=s;cam.muted=true;cam.setAttribute('playsinline','');cam.srcObject=s;
     var pr=cam.play();if(pr&&pr.catch)pr.catch(noop);
     stage.classList.add('live');stage.classList.remove('nocam');
+    maximizeTrack(s);
     s.getVideoTracks().forEach(function(t){t.onended=function(){if(!recording)showCamMsg('Камера отключена','Доступ к камере был потерян. Нажмите «Повторить».');};});
   }
   function fail(e){if(my!==camReq)return;camError(e);}
   function soft(e){return e&&(e.name==='OverconstrainedError'||e.name==='ConstraintNotSatisfiedError'||e.name==='NotFoundError'||e.name==='TypeError');}
-  md.getUserMedia(c1).then(ok,function(e1){
+  function tryC1(e0){
+    if(!soft(e0))return fail(e0);
+    md.getUserMedia(c1).then(ok,tryC2);
+  }
+  function tryC2(e1){
     if(!soft(e1))return fail(e1);
     md.getUserMedia(c2).then(ok,function(e2){
       if(!soft(e2))return fail(e2);
       md.getUserMedia({video:true,audio:false}).then(function(s){ok(s);toast('Микрофон не найден: видео будет без звука');},fail);
     });
-  });
+  }
+  try{md.getUserMedia(c0).then(ok,tryC1);}catch(e){tryC1({name:'TypeError'});}
+}
+/* push the camera track to the best resolution and up to 30 fps it supports */
+function maximizeTrack(s){
+  try{
+    var t=s.getVideoTracks()[0];
+    if(!t||!t.getCapabilities||!t.applyConstraints)return;
+    var cp=t.getCapabilities()||{},c={};
+    if(cp.width&&cp.width.max)c.width={ideal:cp.width.max};
+    if(cp.height&&cp.height.max)c.height={ideal:cp.height.max};
+    if(cp.frameRate&&cp.frameRate.max)c.frameRate={ideal:Math.min(30,cp.frameRate.max)};
+    if(cp.width&&cp.height&&cp.width.max&&cp.height.max){var pw=window.innerHeight>window.innerWidth;c.aspectRatio={ideal:pw?Math.min(cp.width.max,cp.height.max)/Math.max(cp.width.max,cp.height.max):Math.max(cp.width.max,cp.height.max)/Math.min(cp.width.max,cp.height.max)};}
+    if(!c.width&&!c.height&&!c.frameRate)return;
+    var pr=t.applyConstraints(c);
+    if(pr&&pr.then)pr.then(function(){},function(){
+      var c2={};if(c.width)c2.width=c.width;if(c.height)c2.height=c.height;
+      try{var p2=t.applyConstraints(c2);if(p2&&p2.catch)p2.catch(noop);}catch(e){}
+    });
+  }catch(e){}
+}
+function camInfo(){
+  var w=cam.videoWidth||0,h=cam.videoHeight||0,fps=0;
+  try{var t=stream&&stream.getVideoTracks()[0];if(t&&t.getSettings){var st=t.getSettings();if(!w&&st.width)w=st.width;if(!h&&st.height)h=st.height;fps=st.frameRate||0;}}catch(e){}
+  return {w:w,h:h,fps:fps};
 }
 
 /* ---------- recording ---------- */
@@ -697,17 +727,65 @@ function startRecording(){
     })();
   }else beginRec();
 }
+var recPipe=null,lastRecInfo=null;
+function even(n){n=Math.floor(n);return Math.max(2,n-(n%2));}
+/* decides what gets recorded: the camera stream itself or a center-cropped canvas, so orientation matches the phone */
+function buildRecordStream(){
+  var vw=cam.videoWidth||0,vh=cam.videoHeight||0;
+  var portrait=window.innerHeight>window.innerWidth;
+  if(!vw||!vh){lastRecInfo={w:vw,h:vh,portrait:portrait,canvas:false};return {stream:stream,cleanup:function(){}};}
+  var streamPortrait=vh>vw;
+  // iOS Safari reports rotated element sizes but records the raw landscape sensor stream,
+  // so in portrait always render through a canvas drawn from the (correctly oriented) element.
+  if((!portrait&&!streamPortrait)||typeof document.createElement('canvas').captureStream!=='function'){
+    lastRecInfo={w:vw,h:vh,portrait:streamPortrait,canvas:false};
+    return {stream:stream,cleanup:function(){}};
+  }
+  var a=portrait?9/16:16/9,cw,ch;
+  if(vw/vh>a){ch=vh;cw=vh*a;}else{cw=vw;ch=vw/a;}
+  var W=even(cw),H=even(ch);
+  var cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  var ctx=cv.getContext('2d',{alpha:false});
+  var stopped=false,vcb=0,raf=0;
+  function draw(){
+    var sw=cam.videoWidth,sh=cam.videoHeight;if(!sw||!sh)return;
+    var k=Math.max(W/sw,H/sh),rw=W/k,rh=H/k;
+    try{ctx.drawImage(cam,(sw-rw)/2,(sh-rh)/2,rw,rh,0,0,W,H);}catch(e){}
+  }
+  var useV=typeof cam.requestVideoFrameCallback==='function';
+  function loop(){
+    if(stopped)return;
+    draw();
+    if(useV)vcb=cam.requestVideoFrameCallback(loop);else raf=requestAnimationFrame(loop);
+  }
+  draw();loop();
+  var out=cv.captureStream(30);
+  stream.getAudioTracks().forEach(function(t){try{out.addTrack(t);}catch(e){}});
+  lastRecInfo={w:W,h:H,portrait:portrait,canvas:true};
+  return {stream:out,cleanup:function(){
+    stopped=true;
+    try{if(useV&&cam.cancelVideoFrameCallback)cam.cancelVideoFrameCallback(vcb);}catch(e){}
+    try{cancelAnimationFrame(raf);}catch(e){}
+    try{out.getVideoTracks().forEach(function(t){t.stop();});}catch(e){}
+  }};
+}
+function endRecPipe(){if(recPipe){try{recPipe.cleanup();}catch(e){}recPipe=null;}}
 function beginRec(){
-  chunks=[];rec=null;
+  chunks=[];rec=null;endRecPipe();
   if(!S.noCamera){
     mime=pickMime();
-    try{rec=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);}
-    catch(e){try{rec=new MediaRecorder(stream);}catch(e2){rec=null;}}
-    if(!rec){updateUI();dialog({title:'Не удалось начать запись',text:'Браузер не смог создать запись с этой камеры. Попробуйте перезагрузить страницу.',buttons:[{t:'OK',cls:'pri'}]});return;}
+    try{recPipe=buildRecordStream();}catch(e){recPipe={stream:stream,cleanup:function(){}};lastRecInfo=null;}
+    var rs=recPipe.stream,vb=S.bitrate||12000000;
+    try{rec=new MediaRecorder(rs,mime?{mimeType:mime,videoBitsPerSecond:vb,audioBitsPerSecond:192000}:{videoBitsPerSecond:vb,audioBitsPerSecond:192000});}
+    catch(e){
+      try{rec=mime?new MediaRecorder(rs,{mimeType:mime}):new MediaRecorder(rs);}
+      catch(e1){try{rec=new MediaRecorder(rs);}catch(e2){rec=null;}}
+    }
+    if(!rec){endRecPipe();updateUI();dialog({title:'Не удалось начать запись',text:'Браузер не смог создать запись с этой камеры. Попробуйте перезагрузить страницу.',buttons:[{t:'OK',cls:'pri'}]});return;}
     rec.ondataavailable=function(e){if(e.data&&e.data.size>0)chunks.push(e.data);};
     rec.onstop=onRecStop;
     rec.onerror=function(){toast('Ошибка записи');};
-    try{rec.start();}catch(e){rec=null;updateUI();dialog({title:'Не удалось начать запись',text:String(e&&e.message||e),buttons:[{t:'OK',cls:'pri'}]});return;}
+    try{rec.start();}catch(e){rec=null;endRecPipe();updateUI();dialog({title:'Не удалось начать запись',text:String(e&&e.message||e),buttons:[{t:'OK',cls:'pri'}]});return;}
   }
   recording=true;recStart=Date.now();$('#stTime').textContent='00:00';
   clearInterval(timerI);timerI=setInterval(function(){$('#stTime').textContent=fmtTime(Date.now()-recStart);},250);
@@ -725,6 +803,7 @@ function stopRecording(){
   else if(!wasRec){toast('Готово');}
 }
 function onRecStop(){
+  endRecPipe();
   var type=(rec&&rec.mimeType)||mime||'video/mp4';
   var base=type.split(';')[0];
   var blob=new Blob(chunks,{type:base});
@@ -898,6 +977,22 @@ function buildSettings(){
   }
   toggle(c2,'Обратный отсчёт 3-2-1','Перед началом записи','countdown');
   toggle(c2,'Без камеры','Только суфлёр на тёмном фоне','noCamera',function(){if(recording||counting){S.noCamera=!S.noCamera;buildSettings();return;}updateUI();startCamera();});
+  // quality
+  var sq=sec('Качество');var cq=document.createElement('div');cq.className='rowc';sq.appendChild(cq);
+  var rq=document.createElement('div');rq.className='row';rq.innerHTML='<div>Битрейт видео</div>';
+  var sg=document.createElement('div');sg.className='seg';
+  [[6000000,'Обычное 6'],[12000000,'Высокое 12'],[20000000,'Максимальное 20']].forEach(function(m){
+    var x=document.createElement('button');x.textContent=m[1];x.className=S.bitrate===m[0]?'on':'';
+    x.addEventListener('click',function(){S.bitrate=m[0];saveSettings();[].forEach.call(sg.children,function(c){c.className='';});x.className='on';});
+    sg.appendChild(x);
+  });
+  rq.appendChild(sg);cq.appendChild(rq);
+  var ci=camInfo(),inf1=document.createElement('div'),inf2=document.createElement('div');
+  inf1.className=inf2.className='row';inf1.style.fontSize=inf2.style.fontSize='13px';inf1.style.opacity=inf2.style.opacity='.75';
+  inf1.textContent=(ci.w&&ci.h)?'Камера: '+ci.w+'x'+ci.h+(ci.fps?', '+Math.round(ci.fps)+' к/с':''):'Камера: нет данных';
+  var ri=lastRecInfo;
+  inf2.textContent=ri&&ri.w?'Запись: '+ri.w+'x'+ri.h+(ri.portrait?' (вертикально)':' (горизонтально)')+(ri.canvas?' (через обрезку)':''):'Запись: появится после первой съёмки';
+  cq.appendChild(inf1);cq.appendChild(inf2);
   // text
   var s3=sec('Текст');var c3=document.createElement('div');c3.className='rowc';s3.appendChild(c3);
   toggle(c3,'Зеркальный текст','Для суфлёров со стеклом','mirrorText',applyLayout);
