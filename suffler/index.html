@@ -47,9 +47,9 @@ input,textarea{font:inherit;-webkit-user-select:text;user-select:text}
 #view.mirror #mir{transform:scaleX(-1)}
 #txt{position:absolute;left:0;top:0;width:100%;font-size:var(--fs);line-height:var(--lh);font-weight:600;will-change:transform;color:var(--pfg)}
 #txt.line{width:max-content;white-space:nowrap}
-#txt .w{color:var(--pfg);transition:opacity .15s,color .15s}
+#txt .w{color:var(--pfg)}
 #txt .w.rd{opacity:.38}
-#txt .w.cur{color:var(--pacc);text-shadow:0 0 .55em rgba(var(--accc),.45)}
+#txt .w.cur{color:var(--pacc)}
 #txt .brk{display:block;height:.35em}
 #txt.line .brk{display:inline-block;width:1.4em;height:0}
 #txt .ph{opacity:.7;font-weight:500}
@@ -394,15 +394,31 @@ function loadScript(keepPos){
   P.snap=true;updateUI();
 }
 function measure(){
-  var N=P.els.length;P.cent=[];P.LS=[];P.LT=[];P.lineOf=[];
+  var N=P.els.length;P.cent=[];P.left=[];P.F=null;P.LS=[];P.LT=[];P.lineOf=[];
   P.viewW=view.clientWidth||300;
   if(N){
     var line=-1,lastTop=-9999;
     for(var i=0;i<N;i++){
       var el=P.els[i],t=el.offsetTop;
       if(Math.abs(t-lastTop)>2){line++;P.LS.push(i);P.LT.push(t);lastTop=t;}
-      P.lineOf[i]=line;P.cent[i]=el.offsetLeft+el.offsetWidth/2;
+      P.lineOf[i]=line;P.cent[i]=el.offsetLeft+el.offsetWidth/2;P.left[i]=el.offsetLeft;
     }
+    // F[k] = pixel position where word k starts (x in line mode, y in block mode).
+    // Text moves at a constant pixel speed along F, so motion is perfectly even.
+    var F=new Array(N+1);
+    if(S.mode==='line'){
+      for(var j=0;j<N;j++)F[j]=P.left[j];
+      F[N]=P.left[N-1]+P.els[N-1].offsetWidth;
+    }else{
+      for(var L=0;L<P.LS.length;L++){
+        var s0=P.LS[L],s1=L+1<P.LS.length?P.LS[L+1]:N,y0=P.LT[L];
+        var y1=L+1<P.LT.length?P.LT[L+1]:y0+lh;
+        for(var j2=s0;j2<s1;j2++)F[j2]=y0+(y1-y0)*(j2-s0)/(s1-s0);
+        if(s1===N)F[N]=y1;
+      }
+    }
+    for(var q=1;q<=N;q++)if(!(F[q]>F[q-1]+0.01))F[q]=F[q-1]+0.01;
+    P.F=F;P.v=(F[N]-F[0])/N;
   }
   P.snap=true;P.lastX=null;P.lastY=null;
 }
@@ -419,11 +435,23 @@ function frame(t){
   P.rewind=false;
   if(nav.active&&N)applyNav(dt);
   if(P.playing&&N&&!P.rewind){
-    P.pos+=dt*S.wpm/60;
+    P.pos=posFromPx(pxFromPos(P.pos)+dt*S.wpm/60*(P.v||1));
     if(P.pos>=N){P.pos=N-0.001;P.playing=false;P.ended=true;updateUI();}
   }
   if(N)render(dt);
   requestAnimationFrame(frame);
+}
+function pxFromPos(pos){
+  var F=P.F,N=P.words.length;if(!F||!N)return 0;
+  var i=clamp(Math.floor(pos),0,N-1),f=clamp(pos-i,0,1);
+  return F[i]+(F[i+1]-F[i])*f;
+}
+function posFromPx(x){
+  var F=P.F,N=P.words.length;if(!F||!N)return 0;
+  if(x<=F[0])return 0;if(x>=F[N])return N;
+  var lo=0,hi=N;
+  while(hi-lo>1){var m=(lo+hi)>>1;if(F[m]<=x)lo=m;else hi=m;}
+  return lo+(x-F[lo])/(F[lo+1]-F[lo]);
 }
 function render(dt){
   var N=P.words.length;
@@ -432,21 +460,18 @@ function render(dt){
   var frac=clamp(P.pos-i,0,1);
   var k=P.snap?1:1-Math.exp(-dt*18);
   if(S.mode==='line'){
-    var c0=P.cent[i],c1=i+1<N?P.cent[i+1]:c0,cx=c0+(c1-c0)*frac;
-    var target=P.viewW*0.4-cx;
-    P.x=P.snap?target:P.x+(target-P.x)*k;
-    var xs=Math.round(P.x*10)/10;
+    var cx=pxFromPos(P.pos);
+    var target=P.viewW*0.35-cx,dx=target-P.x;
+    P.x=(P.snap||Math.abs(dx)<40)?target:P.x+dx*k;
+    var xs=Math.round(P.x*100)/100;
     if(xs!==P.lastX){P.lastX=xs;txt.style.transform='translate3d('+xs+'px,0,0)';}
   }else{
-    var L=P.lineOf[i],y=P.LT[L];
-    if(L+1<P.LS.length){
-      var span=P.LS[L+1]-P.LS[L];
-      y+= (P.LT[L+1]-P.LT[L])*clamp((P.pos-P.LS[L])/span,0,1);
-    }
+    var y=pxFromPos(P.pos);
     var off=S.lines>=3?1:0;
     var ty=Math.max(0,y-off*lh);
-    P.y=P.snap?ty:P.y+(ty-P.y)*k;
-    var ys=Math.round(P.y*10)/10;
+    var dy=ty-P.y;
+    P.y=(P.snap||Math.abs(dy)<30)?ty:P.y+dy*k;
+    var ys=Math.round(P.y*100)/100;
     if(ys!==P.lastY){P.lastY=ys;txt.style.transform='translate3d(0,'+(-ys)+'px,0)';}
   }
   P.snap=false;
